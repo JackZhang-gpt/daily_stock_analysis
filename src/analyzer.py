@@ -710,7 +710,13 @@ class GeminiAnalyzer:
     def _init_litellm(self) -> None:
         """Initialize litellm Router from channels / YAML / legacy keys."""
         config = get_config()
-        litellm_model = config.litellm_model
+        
+        # ==========================================
+        # 🚨 外科手术修改：强制锁死 DeepSeek 模型
+        # ==========================================
+        litellm_model = "openai/deepseek-chat"
+        config.litellm_model = "openai/deepseek-chat"
+        
         if not litellm_model:
             logger.warning("Analyzer LLM: LITELLM_MODEL not configured")
             return
@@ -773,21 +779,7 @@ class GeminiAnalyzer:
         return self._router is not None or self._litellm_available
 
     def _call_litellm(self, prompt: str, generation_config: dict) -> Tuple[str, str, Dict[str, Any]]:
-        """Call LLM via litellm with fallback across configured models.
-
-        When channels/YAML are configured, every model goes through the Router
-        (which handles per-model key selection, load balancing, and retries).
-        In legacy mode, the primary model may use the Router while fallback
-        models fall back to direct litellm.completion().
-
-        Args:
-            prompt: User prompt text.
-            generation_config: Dict with optional keys: temperature, max_output_tokens, max_tokens.
-
-        Returns:
-            Tuple of (response text, model_used, usage). On success model_used is the full model
-            name and usage is a dict with prompt_tokens, completion_tokens, total_tokens.
-        """
+        """Call LLM via litellm with fallback across configured models."""
         config = get_config()
         max_tokens = (
             generation_config.get('max_output_tokens')
@@ -796,8 +788,10 @@ class GeminiAnalyzer:
         )
         temperature = generation_config.get('temperature', 0.7)
 
-        models_to_try = [config.litellm_model] + (config.litellm_fallback_models or [])
-        models_to_try = [m for m in models_to_try if m]
+        # ==========================================
+        # 🚨 外科手术修改：斩断备用模型，只用 DeepSeek
+        # ==========================================
+        models_to_try = ["openai/deepseek-chat"]
 
         use_channel_router = self._has_channel_config(config)
 
@@ -820,19 +814,20 @@ class GeminiAnalyzer:
 
                 _router_model_names = set(get_configured_llm_models(config.llm_model_list))
                 if use_channel_router and self._router and model in _router_model_names:
-                    # Channel / YAML path: Router manages key + base_url per model
                     response = self._router.completion(**call_kwargs)
                 elif self._router and model == config.litellm_model and not use_channel_router:
-                    # Legacy path: Router only for primary model multi-key
                     response = self._router.completion(**call_kwargs)
                 else:
-                    # Legacy/direct-env path: direct call (also handles direct-env
-                    # providers like groq/ or bedrock/ that are not in the Router
-                    # model_list even when channel mode is active)
                     keys = get_api_keys_for_model(model, config)
                     if keys:
                         call_kwargs["api_key"] = keys[0]
                     call_kwargs.update(extra_litellm_params(model, config))
+                    
+                    # 强行注入环境变量防止 litellm 找不到 key
+                    import os
+                    if not call_kwargs.get("api_key") and os.getenv("DEEPSEEK_API_KEY"):
+                        call_kwargs["api_key"] = os.getenv("DEEPSEEK_API_KEY")
+                        
                     response = litellm.completion(**call_kwargs)
 
                 if response and response.choices and response.choices[0].message.content:
@@ -852,7 +847,7 @@ class GeminiAnalyzer:
                 continue
 
         raise Exception(f"All LLM models failed (tried {len(models_to_try)} model(s)). Last error: {last_error}")
-
+    
     def generate_text(
         self,
         prompt: str,
