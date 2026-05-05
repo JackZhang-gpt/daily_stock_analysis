@@ -711,12 +711,8 @@ class GeminiAnalyzer:
         """Initialize litellm Router from channels / YAML / legacy keys."""
         config = get_config()
         
-        # ==========================================
-        # 🚨 外科手术修改：强制锁死 DeepSeek 模型
-        # ==========================================
-        litellm_model = "openai/deepseek-chat"
-        config.litellm_model = "openai/deepseek-chat"
-        
+        litellm_model = config.litellm_model
+
         if not litellm_model:
             logger.warning("Analyzer LLM: LITELLM_MODEL not configured")
             return
@@ -788,10 +784,12 @@ class GeminiAnalyzer:
         )
         temperature = generation_config.get('temperature', 0.7)
 
-        # ==========================================
-        # 🚨 外科手术修改：斩断备用模型，只用 DeepSeek
-        # ==========================================
-        models_to_try = ["openai/deepseek-chat"]
+        models_to_try = [
+            model
+            for model in [config.litellm_model, *(config.litellm_fallback_models or [])]
+            if model
+        ]
+        models_to_try = list(dict.fromkeys(models_to_try))
 
         use_channel_router = self._has_channel_config(config)
 
