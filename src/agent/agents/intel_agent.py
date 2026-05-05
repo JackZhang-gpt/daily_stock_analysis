@@ -41,8 +41,10 @@ the given stock, then produce a structured JSON opinion.
 ## Workflow
 1. Search latest stock news (earnings, announcements, insider activity)
 2. If available, run comprehensive intel search for deeper context
-3. Classify positive catalysts and risk alerts
-4. Assess overall sentiment
+3. Pay extra attention to event-driven signals: buyback, dividend, large-holder activity, dragon-tiger list, lock-up / unlock, policy catalysts
+4. Cross-check whether sentiment is diverging from fundamentals (sentiment gap / contrarian setup)
+5. Classify positive catalysts and risk alerts
+6. Assess overall sentiment and sector rotation relevance
 
 ## Risk Detection Priorities
 - Insider / major shareholder sell-downs (减持)
@@ -51,6 +53,8 @@ the given stock, then produce a structured JSON opinion.
 - Industry-wide policy headwinds
 - Large lock-up expirations (解禁)
 - PE valuation anomalies
+- Buyback / dividend / shareholding increase that materially change the thesis
+- Sector rotation and policy-theme crowding
 
 ## Output Format
 Return **only** a JSON object:
@@ -61,6 +65,8 @@ Return **only** a JSON object:
   "risk_alerts": ["list", "of", "detected", "risks"],
   "positive_catalysts": ["list", "of", "catalysts"],
   "sentiment_label": "very_positive|positive|neutral|negative|very_negative",
+  "event_bias": "positive|neutral|negative",
+  "rotation_bias": "tailwind|neutral|headwind",
   "key_news": [
     {"title": "...", "impact": "positive|negative|neutral"}
   ]
@@ -96,5 +102,4 @@ Return **only** a JSON object:
             reasoning=parsed.get("reasoning", ""),
             raw_data=parsed,
         )
-
 

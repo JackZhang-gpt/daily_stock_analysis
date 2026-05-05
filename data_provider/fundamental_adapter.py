@@ -315,18 +315,34 @@ class AkshareFundamentalAdapter:
                 revenue_yoy = _safe_float(_pick_by_keywords(row, ["营业收入同比", "营收同比", "收入同比", "同比增长"]))
                 profit_yoy = _safe_float(_pick_by_keywords(row, ["净利润同比", "净利同比", "归母净利润同比"]))
                 roe = _safe_float(_pick_by_keywords(row, ["净资产收益率", "ROE", "净资产收益"]))
+                roa = _safe_float(_pick_by_keywords(row, ["总资产收益率", "ROA"]))
                 gross_margin = _safe_float(_pick_by_keywords(row, ["毛利率"]))
+                net_margin = _safe_float(_pick_by_keywords(row, ["净利率", "销售净利率"]))
+                debt_ratio = _safe_float(_pick_by_keywords(row, ["资产负债率", "负债率"]))
+                current_ratio = _safe_float(_pick_by_keywords(row, ["流动比率"]))
+                quick_ratio = _safe_float(_pick_by_keywords(row, ["速动比率", "酸性测试比率"]))
                 report_date = _normalize_report_date(_pick_by_keywords(row, _DIVIDEND_KEYWORD_MAP["report_date"]))
                 revenue = _safe_float(_pick_by_keywords(row, ["营业总收入", "营业收入", "营收"]))
                 net_profit_parent = _safe_float(_pick_by_keywords(row, ["归母净利润", "母公司股东净利润", "净利润"]))
                 operating_cash_flow = _safe_float(
                     _pick_by_keywords(row, ["经营活动产生的现金流量净额", "经营现金流", "经营活动现金流"])
                 )
+                asset_turnover = None
+                if revenue is not None:
+                    total_assets = _safe_float(_pick_by_keywords(row, ["资产总计", "总资产"]))
+                    if total_assets not in (None, 0):
+                        asset_turnover = revenue / total_assets
                 result["growth"] = {
                     "revenue_yoy": revenue_yoy,
                     "net_profit_yoy": profit_yoy,
                     "roe": roe,
+                    "roa": roa,
                     "gross_margin": gross_margin,
+                    "net_margin": net_margin,
+                    "debt_ratio": debt_ratio,
+                    "current_ratio": current_ratio,
+                    "quick_ratio": quick_ratio,
+                    "asset_turnover": asset_turnover,
                 }
                 financial_report_payload = {
                     "report_date": report_date,
@@ -334,6 +350,13 @@ class AkshareFundamentalAdapter:
                     "net_profit_parent": net_profit_parent,
                     "operating_cash_flow": operating_cash_flow,
                     "roe": roe,
+                    "roa": roa,
+                    "gross_margin": gross_margin,
+                    "net_margin": net_margin,
+                    "debt_ratio": debt_ratio,
+                    "current_ratio": current_ratio,
+                    "quick_ratio": quick_ratio,
+                    "asset_turnover": asset_turnover,
                 }
                 if any(v is not None for v in financial_report_payload.values()):
                     result["earnings"]["financial_report"] = financial_report_payload

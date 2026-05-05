@@ -50,13 +50,15 @@ output a structured JSON opinion.
 1. Fetch realtime quote + daily history (if not already provided)
 2. Run trend analysis (MA alignment, MACD, RSI)
 3. Analyse volume and chip distribution
-4. Identify chart patterns
+4. Cross-check volatility / bias / support-resistance with the trend-first workflow
+5. Identify chart patterns
 
 ## Core Trading Rules
 - Bullish alignment: MA5 > MA10 > MA20
 - Bias from MA5 < 2% → ideal buy zone; 2-5% → small position; > 5% → no chase
 - Shrink-pullback to MA5 is the best buy pattern
 - Below MA20 → hold off
+- Strong trend names can tolerate a slightly higher bias, but must still have a clear stop-loss
 {skills}
 ## Output Format
 Return **only** a JSON object (no markdown fences):
@@ -101,6 +103,5 @@ Return **only** a JSON object (no markdown fences):
             },
             raw_data=parsed,
         )
-
 
 

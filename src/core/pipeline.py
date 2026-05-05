@@ -32,6 +32,7 @@ from src.search_service import SearchService
 from src.services.social_sentiment_service import SocialSentimentService
 from src.enums import ReportType
 from src.stock_analyzer import StockTrendAnalyzer, TrendAnalysisResult
+from src.core.research_framework import build_research_framework
 from src.core.trading_calendar import get_market_for_stock, is_market_open
 from data_provider.us_index_mapping import is_us_stock_code
 from bot.models import BotMessage
@@ -248,6 +249,7 @@ class StockAnalysisPipeline:
             # - 失败时返回 partial/failed，不影响既有技术面/新闻链路
             # - 关闭开关时仍返回 not_supported 结构
             fundamental_context = None
+            belong_boards = []
             try:
                 fundamental_context = self.fetcher_manager.get_fundamental_context(
                     code,
@@ -256,6 +258,12 @@ class StockAnalysisPipeline:
             except Exception as e:
                 logger.warning(f"{stock_name}({code}) 基本面聚合失败: {e}")
                 fundamental_context = self.fetcher_manager.build_failed_fundamental_context(code, str(e))
+
+            try:
+                belong_boards = self.fetcher_manager.get_belong_boards(code)
+            except Exception as e:
+                logger.debug(f"{stock_name}({code}) 获取所属板块失败: {e}")
+                belong_boards = []
 
             # P0: write-only snapshot, fail-open, no read dependency on this table.
             try:
@@ -271,6 +279,7 @@ class StockAnalysisPipeline:
 
             # Step 3: 趋势分析（基于交易理念）— 在 Agent 分支之前执行，供两条路径共用
             trend_result: Optional[TrendAnalysisResult] = None
+            historical_df = None
             try:
                 end_date = date.today()
                 start_date = end_date - timedelta(days=89)  # ~60 trading days for MA60
@@ -280,11 +289,28 @@ class StockAnalysisPipeline:
                     # Issue #234: Augment with realtime for intraday MA calculation
                     if self.config.enable_realtime_quote and realtime_quote:
                         df = self._augment_historical_with_realtime(df, realtime_quote, code)
+                    historical_df = df
                     trend_result = self.trend_analyzer.analyze(df, code)
                     logger.info(f"{stock_name}({code}) 趋势分析: {trend_result.trend_status.value}, "
                               f"买入信号={trend_result.buy_signal.value}, 评分={trend_result.signal_score}")
             except Exception as e:
                 logger.warning(f"{stock_name}({code}) 趋势分析失败: {e}", exc_info=True)
+                historical_df = None
+
+            research_framework = None
+            try:
+                research_framework = build_research_framework(
+                    stock_code=code,
+                    stock_name=stock_name,
+                    history_df=historical_df,
+                    trend_result=trend_result,
+                    realtime_quote=realtime_quote,
+                    fundamental_context=fundamental_context,
+                    belong_boards=belong_boards,
+                )
+            except Exception as e:
+                logger.warning(f"{stock_name}({code}) 研究框架构建失败: {e}")
+                research_framework = None
 
             if use_agent:
                 logger.info(f"{stock_name}({code}) 启用 Agent 模式进行分析")
@@ -297,6 +323,8 @@ class StockAnalysisPipeline:
                     chip_data,
                     fundamental_context,
                     trend_result,
+                    research_framework,
+                    belong_boards,
                 )
 
             # Step 4: 多维度情报搜索（最新消息+风险排查+业绩预期）
@@ -373,6 +401,8 @@ class StockAnalysisPipeline:
                 trend_result,
                 stock_name,  # 传入股票名称
                 fundamental_context,
+                research_framework,
+                belong_boards,
             )
             
             # Step 7: 调用 AI 分析（传入增强的上下文和新闻）
@@ -427,7 +457,9 @@ class StockAnalysisPipeline:
         chip_data: Optional[ChipDistribution],
         trend_result: Optional[TrendAnalysisResult],
         stock_name: str = "",
-        fundamental_context: Optional[Dict[str, Any]] = None
+        fundamental_context: Optional[Dict[str, Any]] = None,
+        research_framework: Optional[Dict[str, Any]] = None,
+        belong_boards: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         """
         增强分析上下文
@@ -580,6 +612,8 @@ class StockAnalysisPipeline:
                 "invalid fundamental context",
             )
         )
+        enhanced["research_framework"] = research_framework if isinstance(research_framework, dict) else {}
+        enhanced["belong_boards"] = belong_boards if isinstance(belong_boards, list) else []
 
         return enhanced
 
@@ -593,6 +627,8 @@ class StockAnalysisPipeline:
         chip_data: Optional[ChipDistribution],
         fundamental_context: Optional[Dict[str, Any]] = None,
         trend_result: Optional[TrendAnalysisResult] = None,
+        research_framework: Optional[Dict[str, Any]] = None,
+        belong_boards: Optional[List[Dict[str, Any]]] = None,
     ) -> Optional[AnalysisResult]:
         """
         使用 Agent 模式分析单只股票。
@@ -609,6 +645,8 @@ class StockAnalysisPipeline:
                 "stock_name": stock_name,
                 "report_type": report_type.value,
                 "fundamental_context": fundamental_context,
+                "research_framework": research_framework or {},
+                "belong_boards": belong_boards or [],
             }
             
             if realtime_quote:

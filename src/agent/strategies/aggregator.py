@@ -24,6 +24,24 @@ logger = logging.getLogger(__name__)
 # Minimum backtest samples to use historical weighting
 _MIN_BACKTEST_SAMPLES = 30
 
+# Static strategy priors merged from findata-toolkit-cn methodology into the
+# existing daily_stock trend-first philosophy. Trend-following strategies get
+# slightly higher base weights; slower / more subjective frameworks get a
+# modest haircut and rely more on confidence + backtest performance.
+_STRATEGY_BASE_WEIGHTS: Dict[str, float] = {
+    "bull_trend": 1.15,
+    "shrink_pullback": 1.10,
+    "volume_breakout": 1.05,
+    "ma_golden_cross": 1.00,
+    "dragon_head": 0.95,
+    "emotion_cycle": 0.95,
+    "box_oscillation": 0.90,
+    "bottom_volume": 0.90,
+    "one_yang_three_yin": 0.90,
+    "chan_theory": 0.85,
+    "wave_theory": 0.85,
+}
+
 # Signal → numeric score for weighted averaging
 _SIGNAL_SCORES: Dict[str, float] = {
     "strong_buy": 5.0,
@@ -157,13 +175,15 @@ class StrategyAggregator:
         """
         base_weight = opinion.confidence  # 0.0–1.0
 
+        strategy_id = opinion.agent_name.replace("strategy_", "")
+        static_weight = _STRATEGY_BASE_WEIGHTS.get(strategy_id, 1.0)
         if perf_weight is not None:
-            return base_weight * perf_weight
+            return base_weight * static_weight * perf_weight
 
         # Backtest performance multiplier
         bt_factor = self._backtest_factor(opinion.agent_name, min_samples)
 
-        return base_weight * bt_factor
+        return base_weight * static_weight * bt_factor
 
     @staticmethod
     def _backtest_factor(agent_name: str, min_samples: int) -> float:

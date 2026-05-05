@@ -340,6 +340,11 @@ class AnalysisResult:
     fundamental_analysis: str = ""  # 基本面综合分析
     sector_position: str = ""  # 板块地位和行业趋势
     company_highlights: str = ""  # 公司亮点/风险点
+    factor_analysis: str = ""  # 因子视角分析
+    valuation_assessment: str = ""  # 估值框架评估
+    diagnostic_summary: str = ""  # 财务诊断摘要
+    event_driven_analysis: str = ""  # 事件驱动信号
+    workflow_summary: str = ""  # workflow 与权重下的综合判断
 
     # ========== 情绪面/消息面分析 ==========
     news_summary: str = ""  # 近期重要新闻/公告摘要
@@ -391,6 +396,11 @@ class AnalysisResult:
             'fundamental_analysis': self.fundamental_analysis,
             'sector_position': self.sector_position,
             'company_highlights': self.company_highlights,
+            'factor_analysis': self.factor_analysis,
+            'valuation_assessment': self.valuation_assessment,
+            'diagnostic_summary': self.diagnostic_summary,
+            'event_driven_analysis': self.event_driven_analysis,
+            'workflow_summary': self.workflow_summary,
             'news_summary': self.news_summary,
             'market_sentiment': self.market_sentiment,
             'hot_topics': self.hot_topics,
@@ -646,6 +656,11 @@ class GeminiAnalyzer:
     "fundamental_analysis": "基本面分析",
     "sector_position": "板块行业分析",
     "company_highlights": "公司亮点/风险",
+    "factor_analysis": "六因子与风格暴露分析",
+    "valuation_assessment": "估值框架与高估/低估判断",
+    "diagnostic_summary": "财务诊断总结（现金流/40法则/F-score代理等）",
+    "event_driven_analysis": "事件驱动与行业轮动信号分析",
+    "workflow_summary": "workflow 权重下的综合判断",
     "news_summary": "新闻摘要",
     "market_sentiment": "市场情绪",
     "hot_topics": "相关热点",
@@ -1170,6 +1185,66 @@ class GeminiAnalyzer:
 | 70%筹码集中度 | {chip.get('concentration_70', 0):.2%} | |
 | 筹码状态 | {chip.get('chip_status', '未知')} | |
 """
+
+        research_framework = context.get("research_framework") if isinstance(context, dict) else None
+        if isinstance(research_framework, dict) and research_framework:
+            workflow = research_framework.get("workflow", {}) if isinstance(research_framework.get("workflow"), dict) else {}
+            factor_lens = research_framework.get("factor_lens", {}) if isinstance(research_framework.get("factor_lens"), dict) else {}
+            diagnostic_lens = research_framework.get("diagnostic_lens", {}) if isinstance(research_framework.get("diagnostic_lens"), dict) else {}
+            valuation_lens = research_framework.get("valuation_lens", {}) if isinstance(research_framework.get("valuation_lens"), dict) else {}
+            signal_lens = research_framework.get("signal_lens", {}) if isinstance(research_framework.get("signal_lens"), dict) else {}
+            identity = research_framework.get("identity", {}) if isinstance(research_framework.get("identity"), dict) else {}
+            factor_scores = factor_lens.get("scores", {}) if isinstance(factor_lens.get("scores"), dict) else {}
+            workflow_stage_scores = workflow.get("stage_scores", {}) if isinstance(workflow.get("stage_scores"), dict) else {}
+            workflow_stage_weights = workflow.get("stage_weights", {}) if isinstance(workflow.get("stage_weights"), dict) else {}
+            prompt += f"""
+### Findata 增强研究框架（workflow + factors）
+> 以下结构化研究框架来自 `findata-toolkit-cn` 的 methodology/workflow/factors，已经按 daily_stock 的趋势优先逻辑融合。
+> 请把它当成 **第二层证据**：先确认技术面，再结合 factor / quality / valuation / event / rotation 做完整结论。
+
+#### Workflow 评分
+| 阶段 | 分数 | 权重 |
+|------|------|------|
+| technical | {workflow_stage_scores.get('technical', 'N/A')} | {workflow_stage_weights.get('technical', 'N/A')} |
+| factors | {workflow_stage_scores.get('factors', 'N/A')} | {workflow_stage_weights.get('factors', 'N/A')} |
+| quality | {workflow_stage_scores.get('quality', 'N/A')} | {workflow_stage_weights.get('quality', 'N/A')} |
+| valuation | {workflow_stage_scores.get('valuation', 'N/A')} | {workflow_stage_weights.get('valuation', 'N/A')} |
+| event | {workflow_stage_scores.get('event', 'N/A')} | {workflow_stage_weights.get('event', 'N/A')} |
+| rotation | {workflow_stage_scores.get('rotation', 'N/A')} | {workflow_stage_weights.get('rotation', 'N/A')} |
+| **workflow总分** | **{workflow.get('workflow_score', 'N/A')}** | 趋势优先 + 因子叠加 |
+
+#### 六因子评分
+| 因子 | 分数 | 重点 |
+|------|------|------|
+| value | {factor_scores.get('value', 'N/A')} | 估值/股息 |
+| momentum | {factor_scores.get('momentum', 'N/A')} | 20/60日动量 |
+| quality | {factor_scores.get('quality', 'N/A')} | ROE/ROA/现金流 |
+| low_volatility | {factor_scores.get('low_volatility', 'N/A')} | 波动/ATR |
+| size | {factor_scores.get('size', 'N/A')} | 小盘弹性 |
+| growth | {factor_scores.get('growth', 'N/A')} | 营收/利润增长 |
+| **综合因子分** | **{factor_lens.get('composite_score', 'N/A')}** | |
+
+#### 财务诊断 / 估值 / 轮动
+- 所属板块：{', '.join(identity.get('belong_boards', [])) if identity.get('belong_boards') else '未知'}
+- 现金转化率：{diagnostic_lens.get('cash_conversion_ratio', 'N/A')}
+- Rule of 40：{diagnostic_lens.get('rule_of_40', 'N/A')}
+- Piotroski代理分：{diagnostic_lens.get('piotroski_proxy', 'N/A')} / 9
+- Altman代理分：{diagnostic_lens.get('altman_proxy_score', 'N/A')}
+- 财务强项：{', '.join(diagnostic_lens.get('strengths', [])) if diagnostic_lens.get('strengths') else '无明显加分项'}
+- 财务红旗：{', '.join(diagnostic_lens.get('red_flags', [])) if diagnostic_lens.get('red_flags') else '暂无明显红旗'}
+- 估值提示：{', '.join(valuation_lens.get('valuation_flags', [])) if valuation_lens.get('valuation_flags') else '估值未见明显异常'}
+- 情绪偏差分：{signal_lens.get('sentiment_gap', {}).get('score', 'N/A')}（{signal_lens.get('sentiment_gap', {}).get('reason', '无')}）
+- 事件驱动分：{signal_lens.get('event_driven', {}).get('score', 'N/A')}；{', '.join(signal_lens.get('event_driven', {}).get('notes', [])) if signal_lens.get('event_driven', {}).get('notes') else '无明显事件加减分'}
+- 行业轮动分：{signal_lens.get('sector_rotation', {}).get('score', 'N/A')}；{', '.join(signal_lens.get('sector_rotation', {}).get('notes', [])) if signal_lens.get('sector_rotation', {}).get('notes') else '行业轮动中性'}
+
+> 输出时请把以上框架明确折叠进：
+> - `factor_analysis`
+> - `valuation_assessment`
+> - `diagnostic_summary`
+> - `event_driven_analysis`
+> - `workflow_summary`
+> 同时保持与 `fundamental_analysis` / `sector_position` / `buy_reason` / `risk_warning` 一致，禁止结论打架。
+"""
         
         # 添加趋势分析结果（基于交易理念的预判）
         if 'trend_analysis' in context:
@@ -1512,6 +1587,11 @@ class GeminiAnalyzer:
                     fundamental_analysis=data.get('fundamental_analysis', ''),
                     sector_position=data.get('sector_position', ''),
                     company_highlights=data.get('company_highlights', ''),
+                    factor_analysis=data.get('factor_analysis', ''),
+                    valuation_assessment=data.get('valuation_assessment', ''),
+                    diagnostic_summary=data.get('diagnostic_summary', ''),
+                    event_driven_analysis=data.get('event_driven_analysis', ''),
+                    workflow_summary=data.get('workflow_summary', ''),
                     # 情绪面/消息面
                     news_summary=data.get('news_summary', ''),
                     market_sentiment=data.get('market_sentiment', ''),

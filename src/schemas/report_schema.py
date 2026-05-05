@@ -154,6 +154,11 @@ class AnalysisReportSchema(BaseModel):
     fundamental_analysis: Optional[str] = None
     sector_position: Optional[str] = None
     company_highlights: Optional[str] = None
+    factor_analysis: Optional[str] = None
+    valuation_assessment: Optional[str] = None
+    diagnostic_summary: Optional[str] = None
+    event_driven_analysis: Optional[str] = None
+    workflow_summary: Optional[str] = None
     news_summary: Optional[str] = None
     market_sentiment: Optional[str] = None
     hot_topics: Optional[str] = None
