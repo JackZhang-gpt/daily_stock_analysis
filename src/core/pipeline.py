@@ -329,7 +329,6 @@ class StockAnalysisPipeline:
                 logger.warning(f"{stock_name}({code}) 基本面聚合失败: {e}")
                 fundamental_context = self.fetcher_manager.build_failed_fundamental_context(code, str(e))
 
-            try:
             fundamental_context = self._attach_belong_boards_to_fundamental_context(
                 code,
                 fundamental_context,

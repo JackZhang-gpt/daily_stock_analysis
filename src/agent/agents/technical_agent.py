@@ -57,12 +57,6 @@ output a structured JSON opinion.
 5. Identify chart patterns
 
 {baseline}
-## Core Trading Rules
-- Bullish alignment: MA5 > MA10 > MA20
-- Bias from MA5 < 2% → ideal buy zone; 2-5% → small position; > 5% → no chase
-- Shrink-pullback to MA5 is the best buy pattern
-- Below MA20 → hold off
-- Strong trend names can tolerate a slightly higher bias, but must still have a clear stop-loss
 {skills}
 ## Output Format
 Return **only** a JSON object (no markdown fences):
