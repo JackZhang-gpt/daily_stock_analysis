@@ -37,7 +37,10 @@ class TechnicalAgent(BaseAgent):
     def system_prompt(self, ctx: AgentContext) -> str:
         skills = ""
         if self.skill_instructions:
-            skills = f"\n## Active Trading Strategies\n\n{self.skill_instructions}\n"
+            skills = f"\n## Active Trading Skills\n\n{self.skill_instructions}\n"
+        baseline = ""
+        if self.technical_skill_policy:
+            baseline = f"\n{self.technical_skill_policy}\n"
 
         return f"""\
 You are a **Technical Analysis Agent** specialising in Chinese A-shares, \
@@ -53,6 +56,7 @@ output a structured JSON opinion.
 4. Cross-check volatility / bias / support-resistance with the trend-first workflow
 5. Identify chart patterns
 
+{baseline}
 ## Core Trading Rules
 - Bullish alignment: MA5 > MA10 > MA20
 - Bias from MA5 < 2% → ideal buy zone; 2-5% → small position; > 5% → no chase
@@ -103,5 +107,3 @@ Return **only** a JSON object (no markdown fences):
             },
             raw_data=parsed,
         )
-
-

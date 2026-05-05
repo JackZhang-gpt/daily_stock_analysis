@@ -7,6 +7,7 @@ export type ApiErrorCategory =
   | 'model_tool_incompatible'
   | 'invalid_tool_call'
   | 'portfolio_oversell'
+  | 'portfolio_busy'
   | 'upstream_llm_400'
   | 'upstream_timeout'
   | 'upstream_network'
@@ -332,10 +333,21 @@ export function parseApiError(error: unknown): ParsedApiError {
     });
   }
 
+  if (errorCode === 'portfolio_busy' || includesAny(matchText, ['portfolio ledger is busy'])) {
+    return createParsedApiError({
+      title: '持仓账本正忙',
+      message: '持仓账本正在处理另一笔变更，请稍后重试。',
+      rawMessage,
+      status,
+      category: 'portfolio_busy',
+    });
+  }
+
   const noConfiguredLlm = (
     includesAny(matchText, ['all llm models failed']) && includesAny(matchText, ['last error: none'])
   ) || includesAny(matchText, [
     'no llm configured',
+    'no effective primary model configured',
     'litellm_model not configured',
     'ai analysis will be unavailable',
   ]);

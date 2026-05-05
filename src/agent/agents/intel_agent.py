@@ -28,6 +28,7 @@ class IntelAgent(BaseAgent):
         "search_stock_news",
         "search_comprehensive_intel",
         "get_stock_info",
+        "get_capital_flow",
     ]
 
     def system_prompt(self, ctx: AgentContext) -> str:
@@ -40,11 +41,14 @@ the given stock, then produce a structured JSON opinion.
 
 ## Workflow
 1. Search latest stock news (earnings, announcements, insider activity)
-2. If available, run comprehensive intel search for deeper context
-3. Pay extra attention to event-driven signals: buyback, dividend, large-holder activity, dragon-tiger list, lock-up / unlock, policy catalysts
-4. Cross-check whether sentiment is diverging from fundamentals (sentiment gap / contrarian setup)
-5. Classify positive catalysts and risk alerts
-6. Assess overall sentiment and sector rotation relevance
+2. Run comprehensive intel search — this covers latest news, company \
+announcements (公司公告), market analysis, risk checks, and earnings outlook
+3. For A-share stocks, call get_capital_flow to obtain main-force (主力) \
+capital inflow/outflow data and include it in your analysis
+4. Pay extra attention to buyback, dividend, large-holder activity, dragon-tiger list, lock-up / unlock, and policy catalysts
+5. Cross-check whether sentiment is diverging from fundamentals (sentiment gap / contrarian setup)
+6. Classify positive catalysts and risk alerts
+7. Assess overall sentiment and sector rotation relevance
 
 ## Risk Detection Priorities
 - Insider / major shareholder sell-downs (减持)
@@ -55,18 +59,26 @@ the given stock, then produce a structured JSON opinion.
 - PE valuation anomalies
 - Buyback / dividend / shareholding increase that materially change the thesis
 - Sector rotation and policy-theme crowding
+- Sustained main-force capital outflow (主力持续净流出)
+ - Sustained main-force capital outflow (主力持续净流出)
+
+## Capital Flow Interpretation (A-shares only)
+- main_net_inflow > 0: bullish signal (主力净流入)
+- main_net_inflow < 0: bearish signal (主力净流出)
+- inflow_5d / inflow_10d: medium-term accumulation or distribution trend
 
 ## Output Format
 Return **only** a JSON object:
 {
   "signal": "strong_buy|buy|hold|sell|strong_sell",
   "confidence": 0.0-1.0,
-  "reasoning": "2-3 sentence summary of news/sentiment findings",
+  "reasoning": "2-3 sentence summary of news/sentiment/capital-flow findings",
   "risk_alerts": ["list", "of", "detected", "risks"],
   "positive_catalysts": ["list", "of", "catalysts"],
   "sentiment_label": "very_positive|positive|neutral|negative|very_negative",
   "event_bias": "positive|neutral|negative",
   "rotation_bias": "tailwind|neutral|headwind",
+  "capital_flow_signal": "inflow|outflow|neutral|not_available",
   "key_news": [
     {"title": "...", "impact": "positive|negative|neutral"}
   ]
@@ -77,7 +89,15 @@ Return **only** a JSON object:
         parts = [f"Gather intelligence and assess sentiment for stock **{ctx.stock_code}**"]
         if ctx.stock_name:
             parts[0] += f" ({ctx.stock_name})"
-        parts.append("Use search tools to find the latest news, then output the JSON opinion.")
+        parts.append(
+            "Steps:\n"
+            "1. Call search_comprehensive_intel to get latest news, company announcements "
+            "(公司公告), risk events, and earnings outlook.\n"
+            "2. Call get_capital_flow to obtain main-force (主力) capital flow data "
+            "(A-share only; skip for HK/US).\n"
+            "3. Also judge event_bias / rotation_bias / capital_flow_signal.\n"
+            "4. Output the JSON opinion."
+        )
         return "\n".join(parts)
 
     def post_process(self, ctx: AgentContext, raw_text: str) -> Optional[AgentOpinion]:
@@ -102,4 +122,3 @@ Return **only** a JSON object:
             reasoning=parsed.get("reasoning", ""),
             raw_data=parsed,
         )
-
